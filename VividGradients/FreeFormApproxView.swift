@@ -16,10 +16,10 @@ struct FreeformApproxView: View {
     ]
     
     let nodes: [(color: Color, radius: CGFloat)] = [
-        (.pink.opacity(0.9), 0.5),
-        (.orange.opacity(0.9), 0.45),
-        (.cyan.opacity(0.9), 0.6),
-        (.purple.opacity(0.85), 0.4)
+        (.red.opacity(0.9), 0.5),
+        (.red.opacity(0.9), 0.45),
+        (.red.opacity(0.9), 0.6),
+        (.red.opacity(0.85), 0.4)
     ]
     
     let staticNodes: [(position: CGPoint, radius: CGFloat)] = [
@@ -29,7 +29,7 @@ struct FreeformApproxView: View {
         (CGPoint(x: 0.8, y: 0.7), 0.28)
     ]
     
-    let blendMode: BlendMode = .normal
+    let blendMode: BlendMode = .overlay
     
     var body: some View {
         GeometryReader { geo in
@@ -38,9 +38,9 @@ struct FreeformApproxView: View {
                 ForEach(0..<staticNodes.count, id: \.self) { i in
                     let n = staticNodes[i]
                     RadialGradient(
-                        gradient: Gradient(colors: [.white.opacity(0.7), .white.opacity(0.0)]),
+                        gradient: Gradient(colors: [.black.opacity(0.7), .black.opacity(0.0)]),
                         center: .center,
-                        startRadius: 0,
+                        startRadius: 10,
                         endRadius: min(geo.size.width, geo.size.height) * n.radius
                     )
                     .frame(width: geo.size.width, height: geo.size.height)
@@ -57,7 +57,7 @@ struct FreeformApproxView: View {
                     RadialGradient(
                         gradient: Gradient(colors: [n.color, n.color.opacity(0.0)]),
                         center: .center,
-                        startRadius: 0,
+                        startRadius: 20,
                         endRadius: min(geo.size.width, geo.size.height) * n.radius
                     )
                     .frame(width: geo.size.width, height: geo.size.height)
@@ -69,6 +69,7 @@ struct FreeformApproxView: View {
                 }
             }
             .compositingGroup()
+            .blur(radius: 30)
             .ignoresSafeArea()
             .onAppear {
                 animateRandomly()
