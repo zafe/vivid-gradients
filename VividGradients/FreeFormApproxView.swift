@@ -8,19 +8,23 @@
 import SwiftUI
 
 struct FreeformApproxView: View {
-    let nodes: [(pos: CGPoint, color: Color, radius: CGFloat)] = [
-        (CGPoint(x: 0.2, y: 0.3), .pink.opacity(0.9), 0.5),
-        (CGPoint(x: 0.6, y: 0.25), .orange.opacity(0.9), 0.45),
-        (CGPoint(x: 0.4, y: 0.7), .cyan.opacity(0.9), 0.6),
-        (CGPoint(x: 0.85, y: 0.6), .purple.opacity(0.85), 0.4)
+    @State private var nodePositions: [CGPoint] = [
+        CGPoint(x: 0.2, y: 0.3),
+        CGPoint(x: 0.6, y: 0.25),
+        CGPoint(x: 0.4, y: 0.7),
+        CGPoint(x: 0.85, y: 0.6)
     ]
-
+    
+    let nodes: [(color: Color, radius: CGFloat)] = [
+        (.pink.opacity(0.9), 0.5),
+        (.orange.opacity(0.9), 0.45),
+        (.cyan.opacity(0.9), 0.6),
+        (.purple.opacity(0.85), 0.4)
+    ]
+    
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // base background                  //  .blur(radius: 0.3)
-
-                // draw radial "color blobs" and blend them
                 ForEach(0..<nodes.count, id: \.self) { i in
                     let n = nodes[i]
                     RadialGradient(
@@ -30,14 +34,30 @@ struct FreeformApproxView: View {
                         endRadius: min(geo.size.width, geo.size.height) * n.radius
                     )
                     .frame(width: geo.size.width, height: geo.size.height)
-                    .position(x: n.pos.x * geo.size.width, y: n.pos.y * geo.size.height)
-                    // try different blend modes: .screen, .plusLighter, .overlay
+                    .position(
+                        x: nodePositions[i].x * geo.size.width,
+                        y: nodePositions[i].y * geo.size.height
+                    )
                     .blendMode(.colorDodge)
-                   // .blur(radius: 2)
+                    .blur(radius: 10)
                 }
             }
-            .compositingGroup() // ensures blend modes compose correctly
+            .compositingGroup()
             .ignoresSafeArea()
+            .onAppear {
+                animateRandomly()
+            }
+        }
+    }
+    
+    private func animateRandomly() {
+        withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+            for i in 0..<nodePositions.count {
+                nodePositions[i] = CGPoint(
+                    x: CGFloat.random(in: 0.1...0.9),
+                    y: CGFloat.random(in: 0.1...0.9)
+                )
+            }
         }
     }
 }
