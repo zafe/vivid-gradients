@@ -22,9 +22,36 @@ struct FreeformApproxView: View {
         (.purple.opacity(0.85), 0.4)
     ]
     
+    let staticNodes: [(position: CGPoint, radius: CGFloat)] = [
+        (CGPoint(x: 0.3, y: 0.4), 0.3),
+        (CGPoint(x: 0.7, y: 0.3), 0.25),
+        (CGPoint(x: 0.5, y: 0.6), 0.35),
+        (CGPoint(x: 0.8, y: 0.7), 0.28)
+    ]
+    
+    let blendMode: BlendMode = .normal
+    
     var body: some View {
         GeometryReader { geo in
             ZStack {
+                // Static white nodes
+                ForEach(0..<staticNodes.count, id: \.self) { i in
+                    let n = staticNodes[i]
+                    RadialGradient(
+                        gradient: Gradient(colors: [.white.opacity(0.7), .white.opacity(0.0)]),
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: min(geo.size.width, geo.size.height) * n.radius
+                    )
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .position(
+                        x: n.position.x * geo.size.width,
+                        y: n.position.y * geo.size.height
+                    )
+                    .blendMode(blendMode)
+                }
+                
+                // Animated colored nodes
                 ForEach(0..<nodes.count, id: \.self) { i in
                     let n = nodes[i]
                     RadialGradient(
@@ -38,8 +65,7 @@ struct FreeformApproxView: View {
                         x: nodePositions[i].x * geo.size.width,
                         y: nodePositions[i].y * geo.size.height
                     )
-                    .blendMode(.colorDodge)
-                    .blur(radius: 10)
+                    .blendMode(blendMode)
                 }
             }
             .compositingGroup()
