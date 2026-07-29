@@ -65,7 +65,13 @@ struct SettingsPanelView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("Randomize Palette", systemImage: "paintbrush") { store.randomizePalette() }
+                        Menu("Randomize Palette", systemImage: "paintbrush") {
+                            ForEach(PaletteMode.allCases) { mode in
+                                Button("\(mode.label) Palette", systemImage: mode.symbol) {
+                                    store.randomizePalette(mode)
+                                }
+                            }
+                        }
                         Button("Randomize Motion", systemImage: "dice") { store.randomizeMotion() }
                         Divider()
                         Button("Reset to Ember", systemImage: "arrow.counterclockwise") { store.apply(.ember) }
@@ -123,7 +129,15 @@ struct SettingsPanelView: View {
             }
             .padding(.vertical, 4)
 
-            Button("Shuffle colors", systemImage: "die.face.5") { store.randomizePalette() }
+            Menu {
+                ForEach(PaletteMode.allCases) { mode in
+                    Button("\(mode.label) Palette", systemImage: mode.symbol) {
+                        store.randomizePalette(mode)
+                    }
+                }
+            } label: {
+                Label("Shuffle colors", systemImage: "die.face.5")
+            }
         } header: {
             Text("Control point colors")
         } footer: {

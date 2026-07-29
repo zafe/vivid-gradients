@@ -551,10 +551,86 @@ extension GradientConfig {
         config.noiseGranularity = 1.0
         return config
     }
+
+    // MARK: Light presets — pale grounds with soft, pastel ramps.
+
+    /// Cherry-blossom pinks and peach on warm white.
+    static var blossom: GradientConfig {
+        base(
+            ramp: [
+                RGBAColor(hue: 0.95, saturation: 0.45, brightness: 0.99),
+                RGBAColor(hue: 0.02, saturation: 0.40, brightness: 0.98),
+                RGBAColor(hue: 0.08, saturation: 0.45, brightness: 0.99),
+                RGBAColor(hue: 0.83, saturation: 0.38, brightness: 0.96)
+            ],
+            background: RGBAColor(hue: 0.95, saturation: 0.05, brightness: 0.99),
+            motion: .drift, velocity: 0.5, amplitude: 0.18
+        )
+    }
+
+    /// Cool lavender-to-mint haze on a blue-white ground.
+    static var mist: GradientConfig {
+        base(
+            ramp: [
+                RGBAColor(hue: 0.72, saturation: 0.35, brightness: 0.96),
+                RGBAColor(hue: 0.62, saturation: 0.42, brightness: 0.96),
+                RGBAColor(hue: 0.54, saturation: 0.40, brightness: 0.97),
+                RGBAColor(hue: 0.45, saturation: 0.38, brightness: 0.97)
+            ],
+            background: RGBAColor(hue: 0.60, saturation: 0.04, brightness: 0.99),
+            motion: .swirl, velocity: 0.35, amplitude: 0.14
+        )
+    }
+
+    /// Lemon, peach and pink pastels — a scoop of sorbet.
+    static var sorbet: GradientConfig {
+        base(
+            ramp: [
+                RGBAColor(hue: 0.13, saturation: 0.50, brightness: 1.00),
+                RGBAColor(hue: 0.08, saturation: 0.50, brightness: 0.99),
+                RGBAColor(hue: 0.98, saturation: 0.48, brightness: 0.98),
+                RGBAColor(hue: 0.03, saturation: 0.55, brightness: 0.97)
+            ],
+            background: RGBAColor(hue: 0.10, saturation: 0.05, brightness: 1.00),
+            motion: .drift, velocity: 0.7, amplitude: 0.20
+        )
+    }
+
+    /// Soft greens rising to a warm sky.
+    static var meadow: GradientConfig {
+        base(
+            ramp: [
+                RGBAColor(hue: 0.30, saturation: 0.42, brightness: 0.92),
+                RGBAColor(hue: 0.22, saturation: 0.48, brightness: 0.95),
+                RGBAColor(hue: 0.15, saturation: 0.48, brightness: 0.98),
+                RGBAColor(hue: 0.50, saturation: 0.38, brightness: 0.97)
+            ],
+            background: RGBAColor(hue: 0.30, saturation: 0.05, brightness: 0.98),
+            motion: .flag, velocity: 0.6, amplitude: 0.16
+        )
+    }
+
+    /// A near-neutral warm off-white — subtle beige and taupe.
+    static var linen: GradientConfig {
+        var config = base(
+            ramp: [
+                RGBAColor(hue: 0.09, saturation: 0.18, brightness: 0.94),
+                RGBAColor(hue: 0.07, saturation: 0.22, brightness: 0.90),
+                RGBAColor(hue: 0.10, saturation: 0.12, brightness: 0.96),
+                RGBAColor(hue: 0.08, saturation: 0.08, brightness: 0.98)
+            ],
+            background: RGBAColor(hue: 0.09, saturation: 0.06, brightness: 0.98),
+            motion: .drift, velocity: 0.4, amplitude: 0.12
+        )
+        config.noiseOpacity = 0.12
+        config.noiseGranularity = 1.0
+        return config
+    }
 }
 
 enum GradientPreset: String, CaseIterable, Identifiable {
     case ember, aurora, neon, ocean, sunset, mono
+    case blossom, mist, sorbet, meadow, linen
 
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
@@ -567,29 +643,61 @@ enum GradientPreset: String, CaseIterable, Identifiable {
         case .ocean: .ocean
         case .sunset: .sunset
         case .mono: .mono
+        case .blossom: .blossom
+        case .mist: .mist
+        case .sorbet: .sorbet
+        case .meadow: .meadow
+        case .linen: .linen
         }
     }
 }
 
 // MARK: - Randomiser
 
+/// Which end of the light spectrum a random palette should land in.
+enum PaletteMode: String, CaseIterable, Identifiable {
+    case dark, light
+
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+    var symbol: String { self == .dark ? "moon.stars.fill" : "sun.max.fill" }
+}
+
 extension GradientConfig {
     /// Rebuilds the colour grid around a random base hue, keeping motion intact.
-    mutating func randomizePalette() {
+    /// `mode` decides whether the background reads dark with vivid colours, or
+    /// light with softer ones.
+    mutating func randomizePalette(_ mode: PaletteMode = .dark) {
         let baseHue: Double = Double.random(in: 0...1)
         let spread: Double = Double.random(in: 0.12...0.5)
-        let dark: Double = Double.random(in: 0.02...0.12)
 
-        background = RGBAColor(hue: baseHue, saturation: Double.random(in: 0.3...0.7), brightness: dark)
+        switch mode {
+        case .dark:
+            background = RGBAColor(hue: baseHue,
+                                   saturation: Double.random(in: 0.3...0.7),
+                                   brightness: Double.random(in: 0.02...0.12))
+        case .light:
+            background = RGBAColor(hue: baseHue,
+                                   saturation: Double.random(in: 0.04...0.14),
+                                   brightness: Double.random(in: 0.90...0.99))
+        }
 
         let ramp: [RGBAColor] = (0..<4).map { (i: Int) -> RGBAColor in
             var hue: Double = baseHue + spread * Double(i) + Double.random(in: -0.03...0.03)
             hue -= floor(hue)
-            return RGBAColor(
-                hue: hue,
-                saturation: Double.random(in: 0.65...0.95),
-                brightness: Double.random(in: 0.55...1.0)
-            )
+            let saturation: Double
+            let brightness: Double
+            switch mode {
+            case .dark:
+                // Vivid, bright colours that glow against the dark ground.
+                saturation = Double.random(in: 0.65...0.95)
+                brightness = Double.random(in: 0.55...1.0)
+            case .light:
+                // Softer, slightly deeper tones so they still read on near-white.
+                saturation = Double.random(in: 0.40...0.75)
+                brightness = Double.random(in: 0.80...0.97)
+            }
+            return RGBAColor(hue: hue, saturation: saturation, brightness: brightness)
         }
         colors = Self.makeColors(width: gridWidth, height: gridHeight, ramp: ramp)
     }

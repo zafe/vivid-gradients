@@ -64,8 +64,8 @@ final class GradientStore {
         activePreset = preset
     }
 
-    func randomizePalette() {
-        config.randomizePalette()
+    func randomizePalette(_ mode: PaletteMode = .dark) {
+        config.randomizePalette(mode)
         activePreset = nil
     }
 
