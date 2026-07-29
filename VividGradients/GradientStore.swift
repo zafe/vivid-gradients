@@ -74,27 +74,13 @@ final class GradientStore {
         activePreset = nil
     }
 
-    func addNode() {
-        let hue = Double.random(in: 0...1)
-        config.nodes.append(
-            GradientNode(
-                color: RGBAColor(hue: hue, saturation: 0.8, brightness: 0.95, opacity: 0.8),
-                radius: 0.5,
-                home: CGPoint(x: Double.random(in: 0.2...0.8), y: Double.random(in: 0.2...0.8))
-            )
-        )
+    func setGrid(width: Int, height: Int) {
+        config.setGrid(width: width, height: height)
         activePreset = nil
     }
 
-    func addShadowNode() {
-        config.shadowNodes.append(
-            GradientNode(
-                color: RGBAColor(red: 0, green: 0, blue: 0, opacity: 0.7),
-                radius: 0.3,
-                home: CGPoint(x: Double.random(in: 0.2...0.8), y: Double.random(in: 0.2...0.8))
-            )
-        )
-        activePreset = nil
+    func rerollPhases() {
+        config.motionSeed = Double.random(in: 0...1)
     }
 
     var configJSON: String {

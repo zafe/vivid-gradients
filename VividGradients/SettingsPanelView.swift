@@ -105,32 +105,65 @@ struct SettingsPanelView: View {
         }
 
         Section {
-            ForEach($store.config.nodes) { $node in
-                NodeEditor(node: $node, supportsOpacity: true)
-            }
-            .onDelete { store.config.nodes.remove(atOffsets: $0) }
-
-            Button("Add Node", systemImage: "plus.circle") { store.addNode() }
+            Stepper("Columns: \(store.config.gridWidth)", value: columnsBinding, in: 2...6)
+            Stepper("Rows: \(store.config.gridHeight)", value: rowsBinding, in: 2...6)
         } header: {
-            Text("Color nodes (\(store.config.nodes.count))")
+            Text("Mesh grid")
         } footer: {
-            Text("Each node is a radial gradient blended into the field. Swipe to delete.")
+            Text("Corner points stay pinned; the \(interiorCount) interior point\(interiorCount == 1 ? "" : "s") flow with the motion style.")
         }
 
         Section {
-            Toggle("Shadows follow motion", isOn: $store.config.shadowsMove)
-
-            ForEach($store.config.shadowNodes) { $node in
-                NodeEditor(node: $node, supportsOpacity: true)
+            LazyVGrid(columns: colorGridColumns, spacing: 10) {
+                ForEach(0..<store.config.pointCount, id: \.self) { index in
+                    ColorPicker("", selection: colorBinding(index), supportsOpacity: false)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                }
             }
-            .onDelete { store.config.shadowNodes.remove(atOffsets: $0) }
+            .padding(.vertical, 4)
 
-            Button("Add Shadow", systemImage: "plus.circle") { store.addShadowNode() }
+            Button("Shuffle colors", systemImage: "die.face.5") { store.randomizePalette() }
         } header: {
-            Text("Shadow nodes (\(store.config.shadowNodes.count))")
+            Text("Control point colors")
         } footer: {
-            Text("Dark blobs that carve depth out of the color field.")
+            Text("Each well is one vertex of the mesh, laid out top-left to bottom-right.")
         }
+    }
+
+    private var colorGridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 10), count: store.config.gridWidth)
+    }
+
+    private var interiorCount: Int {
+        max(0, (store.config.gridWidth - 2)) * max(0, (store.config.gridHeight - 2))
+    }
+
+    private var columnsBinding: Binding<Int> {
+        Binding(
+            get: { store.config.gridWidth },
+            set: { store.setGrid(width: $0, height: store.config.gridHeight) }
+        )
+    }
+
+    private var rowsBinding: Binding<Int> {
+        Binding(
+            get: { store.config.gridHeight },
+            set: { store.setGrid(width: store.config.gridWidth, height: $0) }
+        )
+    }
+
+    private func colorBinding(_ index: Int) -> Binding<Color> {
+        Binding(
+            get: {
+                guard store.config.colors.indices.contains(index) else { return .black }
+                return store.config.colors[index].color
+            },
+            set: { newValue in
+                guard store.config.colors.indices.contains(index) else { return }
+                store.config.colors[index] = RGBAColor(newValue)
+            }
+        )
     }
 
     // MARK: Motion
@@ -157,9 +190,7 @@ struct SettingsPanelView: View {
             LabeledSlider(title: "Velocity", value: $store.config.velocity,
                           range: 0...3, format: "%.2f×")
             LabeledSlider(title: "Amplitude", value: $store.config.amplitude,
-                          range: 0...0.6, format: "%.2f")
-            LabeledSlider(title: "Breathe", value: $store.config.breathe,
-                          range: 0...0.6, format: "%.2f")
+                          range: 0...0.5, format: "%.2f")
 
             Picker("Frame rate", selection: $store.config.frameRate) {
                 Text("30 fps").tag(30)
@@ -170,13 +201,10 @@ struct SettingsPanelView: View {
         }
 
         Section {
-            Button("Re-roll node phases", systemImage: "shuffle") {
-                for index in store.config.nodes.indices {
-                    store.config.nodes[index].seed = Double.random(in: 0...1)
-                }
-            }
+            Toggle("Animate edge points", isOn: $store.config.animateEdges)
+            Button("Re-roll phases", systemImage: "shuffle") { store.rerollPhases() }
         } footer: {
-            Text("Phase decides where each node sits in its cycle — re-roll to break up nodes moving in step.")
+            Text("By default only interior points move, keeping the edges anchored. Enable edge animation to let the border ripple too. Re-roll to reshuffle which points lead.")
         }
     }
 
@@ -213,24 +241,15 @@ struct SettingsPanelView: View {
 
     @ViewBuilder
     private var canvasTab: some View {
-        Section("Softness") {
-            LabeledSlider(title: "Blur", value: $store.config.blurRadius,
-                          range: 0...150, format: "%.0f")
-            LabeledSlider(title: "Core", value: $store.config.coreSize,
-                          range: 0...0.6, format: "%.2f")
+        Section {
+            Toggle("Smooth colors", isOn: $store.config.smoothsColors)
+        } footer: {
+            Text("Higher-quality colour interpolation across the mesh. Off gives a flatter, more banded blend.")
         }
 
-        Section {
-            Picker("Between nodes", selection: $store.config.nodeBlend) {
-                ForEach(BlendModeOption.allCases) { Text($0.label).tag($0) }
-            }
-            Picker("Onto background", selection: $store.config.layerBlend) {
-                ForEach(BlendModeOption.allCases) { Text($0.label).tag($0) }
-            }
-        } header: {
-            Text("Blending")
-        } footer: {
-            Text("Nodes blend with each other first, then the whole layer composites onto the background. Overlay gives the moody original; screen and plus lighter give vivid.")
+        Section("Softness") {
+            LabeledSlider(title: "Blur", value: $store.config.blurRadius,
+                          range: 0...60, format: "%.0f")
         }
 
         Section {
@@ -259,17 +278,14 @@ private struct PresetSwatch: View {
         let config = preset.config
 
         VStack(spacing: 6) {
-            ZStack {
-                config.background.color
-                HStack(spacing: -8) {
-                    ForEach(config.nodes.prefix(4)) { node in
-                        Circle()
-                            .fill(node.color.color)
-                            .frame(width: 18, height: 18)
-                            .blur(radius: 4)
-                    }
-                }
-            }
+            MeshGradient(
+                width: config.gridWidth,
+                height: config.gridHeight,
+                points: config.homePoints,
+                colors: config.meshColors,
+                background: config.background.color,
+                smoothsColors: config.smoothsColors
+            )
             .frame(width: 64, height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
@@ -281,31 +297,6 @@ private struct PresetSwatch: View {
             Text(preset.label)
                 .font(.caption2)
                 .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-        }
-    }
-}
-
-private struct NodeEditor: View {
-    @Binding var node: GradientNode
-    let supportsOpacity: Bool
-
-    var body: some View {
-        DisclosureGroup {
-            LabeledSlider(title: "Size", value: $node.radius, range: 0.05...1.2, format: "%.2f")
-            LabeledSlider(title: "X", value: $node.home.x.asDouble, range: -0.2...1.2, format: "%.2f")
-            LabeledSlider(title: "Y", value: $node.home.y.asDouble, range: -0.2...1.2, format: "%.2f")
-            LabeledSlider(title: "Phase", value: $node.seed, range: 0...1, format: "%.2f")
-        } label: {
-            HStack(spacing: 12) {
-                ColorPicker("", selection: $node.color.asColor, supportsOpacity: supportsOpacity)
-                    .labelsHidden()
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(String(format: "size %.2f", node.radius))
-                    Text(String(format: "at %.2f, %.2f", node.home.x, node.home.y))
-                        .foregroundStyle(.secondary)
-                }
-                .font(.caption.monospacedDigit())
-            }
         }
     }
 }
@@ -338,16 +329,6 @@ extension Binding where Value == RGBAColor {
         Binding<Color>(
             get: { wrappedValue.color },
             set: { wrappedValue = RGBAColor($0) }
-        )
-    }
-}
-
-extension Binding where Value == CGFloat {
-    /// `CGPoint` stores CGFloat; the sliders all speak Double.
-    var asDouble: Binding<Double> {
-        Binding<Double>(
-            get: { Double(wrappedValue) },
-            set: { wrappedValue = CGFloat($0) }
         )
     }
 }

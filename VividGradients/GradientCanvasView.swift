@@ -2,8 +2,8 @@
 //  GradientCanvasView.swift
 //  VividGradients
 //
-//  Draws the whole field in a single Canvas so node positions can be a
-//  function of time rather than a pair of keyframes.
+//  Renders the palette as an animated SwiftUI MeshGradient — a lattice of
+//  coloured control points whose interior flows according to the motion style.
 //
 
 import SwiftUI
@@ -15,11 +15,22 @@ struct GradientCanvasView: View {
         let config = store.config
 
         ZStack {
+            // Behind the mesh so any optional blur fades into the base tone
+            // rather than into transparency at the screen edges.
+            config.background.color
+
             TimelineView(.animation(minimumInterval: 1.0 / Double(config.frameRate),
                                     paused: !config.isAnimating)) { timeline in
-                Canvas { context, size in
-                    draw(config, into: &context, size: size, phase: store.phase(at: timeline.date))
-                }
+                let phase = store.phase(at: timeline.date)
+                MeshGradient(
+                    width: config.gridWidth,
+                    height: config.gridHeight,
+                    points: config.meshPoints(at: phase),
+                    colors: config.meshColors,
+                    background: config.background.color,
+                    smoothsColors: config.smoothsColors
+                )
+                .blur(radius: CGFloat(config.blurRadius))
             }
 
             NoiseLayer(
@@ -32,58 +43,6 @@ struct GradientCanvasView: View {
             .allowsHitTesting(false)
         }
         .ignoresSafeArea()
-    }
-
-    private func draw(_ config: GradientConfig, into context: inout GraphicsContext, size: CGSize, phase: Double) {
-        context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(config.background.color))
-
-        if config.blurRadius > 0 {
-            context.addFilter(.blur(radius: CGFloat(config.blurRadius)))
-        }
-        context.blendMode = config.layerBlend.graphicsBlendMode
-
-        // One isolated layer so the nodes blend against each other, then
-        // composite onto the background as a unit.
-        context.drawLayer { layer in
-            layer.blendMode = config.nodeBlend.graphicsBlendMode
-
-            let shadowMotion = config.shadowsMove ? config.motion : .still
-            for node in config.shadowNodes {
-                drawNode(node, motion: shadowMotion, config: config, into: &layer, size: size, phase: phase)
-            }
-            for node in config.nodes {
-                drawNode(node, motion: config.motion, config: config, into: &layer, size: size, phase: phase)
-            }
-        }
-    }
-
-    private func drawNode(
-        _ node: GradientNode,
-        motion: MotionStyle,
-        config: GradientConfig,
-        into context: inout GraphicsContext,
-        size: CGSize,
-        phase: Double
-    ) {
-        let unit = motion.position(home: node.home, phase: phase, seed: node.seed, amplitude: config.amplitude)
-        let center = CGPoint(x: unit.x * size.width, y: unit.y * size.height)
-
-        let breathAngle: Double = phase * 1.3 + node.seed * (2 * Double.pi)
-        let breathScale: Double = 1 + config.breathe * sin(breathAngle)
-        let shortSide: Double = Double(min(size.width, size.height))
-        let scaled: Double = shortSide * node.radius * breathScale
-        let radius = CGFloat(max(1, scaled))
-
-        let box = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-        context.fill(
-            Path(ellipseIn: box),
-            with: .radialGradient(
-                Gradient(colors: [node.color.color, node.color.transparent.color]),
-                center: center,
-                startRadius: radius * CGFloat(config.coreSize),
-                endRadius: radius
-            )
-        )
     }
 }
 

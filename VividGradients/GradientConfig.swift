@@ -73,24 +73,6 @@ enum BlendModeOption: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// `Canvas` draws through `GraphicsContext.BlendMode`, a separate type
-    /// from the `BlendMode` the view modifier takes.
-    var graphicsBlendMode: GraphicsContext.BlendMode {
-        switch self {
-        case .normal: .normal
-        case .overlay: .overlay
-        case .screen: .screen
-        case .plusLighter: .plusLighter
-        case .softLight: .softLight
-        case .hardLight: .hardLight
-        case .multiply: .multiply
-        case .colorDodge: .colorDodge
-        case .colorBurn: .colorBurn
-        case .difference: .difference
-        case .luminosity: .luminosity
-        }
-    }
-
     var label: String {
         switch self {
         case .plusLighter: "Plus Lighter"
@@ -109,9 +91,16 @@ enum BlendModeOption: String, Codable, CaseIterable, Identifiable {
 /// `phase` (seconds scaled by velocity) onto a unit-space position.
 enum MotionStyle: String, Codable, CaseIterable, Identifiable {
     case still, drift, orbit, bounce, swirl, jitter
+    case flag, radiance, ripple, pendulum, figureEight, spiral
 
     var id: String { rawValue }
-    var label: String { rawValue.capitalized }
+
+    var label: String {
+        switch self {
+        case .figureEight: "Figure 8"
+        default: rawValue.capitalized
+        }
+    }
 
     var symbol: String {
         switch self {
@@ -121,6 +110,12 @@ enum MotionStyle: String, Codable, CaseIterable, Identifiable {
         case .bounce: "arrow.up.left.and.arrow.down.right"
         case .swirl: "tornado"
         case .jitter: "waveform.path"
+        case .flag: "flag.fill"
+        case .radiance: "sun.max.fill"
+        case .ripple: "dot.radiowaves.left.and.right"
+        case .pendulum: "metronome.fill"
+        case .figureEight: "infinity"
+        case .spiral: "hurricane"
         }
     }
 
@@ -132,6 +127,12 @@ enum MotionStyle: String, Codable, CaseIterable, Identifiable {
         case .bounce: "Linear travel that reflects at the turnaround."
         case .swirl: "The whole field rotates around the centre."
         case .jitter: "Fast, small, nervous displacement."
+        case .flag: "A wave travels left to right, rippling like cloth in wind."
+        case .radiance: "Nodes pulse outward from the centre and back, together."
+        case .ripple: "Concentric rings — nodes bob by their distance from centre."
+        case .pendulum: "An eased side-to-side swing with a gentle vertical bob."
+        case .figureEight: "Each node traces a looping figure-eight around home."
+        case .spiral: "Rotation whose radius grows and shrinks — a winding spiral."
         }
     }
 
@@ -172,6 +173,60 @@ enum MotionStyle: String, Codable, CaseIterable, Identifiable {
             let dx: Double = a * 0.25 * (sin(p * 6.3 + s * 3) + sin(p * 9.7 + s * 7))
             let dy: Double = a * 0.25 * (cos(p * 7.1 + s * 5) + cos(p * 11.3 + s * 2))
             return CGPoint(x: hx + dx, y: hy + dy)
+
+        case .flag:
+            // A wave whose phase depends on x, so it sweeps across the field
+            // like the ripple running down a flag. Amplitude eases in from the
+            // left edge (the "pole") so that side stays calmer.
+            let travel: Double = sin(hx * 6.0 - p * 2.0 + s)
+            let anchor: Double = 0.35 + 0.65 * hx
+            let dy: Double = a * travel * anchor
+            let dx: Double = a * 0.15 * cos(hx * 6.0 - p * 2.0 + s)
+            return CGPoint(x: hx + dx, y: hy + dy)
+
+        case .radiance:
+            // Every node slides along its own ray from the centre, in unison,
+            // so the whole field breathes like a burst of light.
+            let rx: Double = hx - 0.5
+            let ry: Double = hy - 0.5
+            let len: Double = max(1e-4, (rx * rx + ry * ry).squareRoot())
+            let pulse: Double = sin(p * 0.9 + s * 0.2)
+            let scale: Double = a * pulse / len
+            return CGPoint(x: hx + rx * scale, y: hy + ry * scale)
+
+        case .ripple:
+            // Same radial slide as radiance, but the phase is offset by
+            // distance from centre, so peaks travel outward as rings.
+            let rx: Double = hx - 0.5
+            let ry: Double = hy - 0.5
+            let len: Double = max(1e-4, (rx * rx + ry * ry).squareRoot())
+            let wave: Double = sin(len * 9.0 - p * 2.0 + s * 0.3)
+            let scale: Double = a * wave / len
+            return CGPoint(x: hx + rx * scale, y: hy + ry * scale)
+
+        case .pendulum:
+            // Eased horizontal swing, with a vertical bob at twice the rate so
+            // the node dips at each end of its arc.
+            let swing: Double = sin(p * 0.9 + s)
+            let dx: Double = a * swing
+            let dy: Double = a * 0.25 * (1 - cos(p * 1.8 + s * 2))
+            return CGPoint(x: hx + dx, y: hy + dy)
+
+        case .figureEight:
+            // A 2:1 Lissajous figure — the classic lying-down figure eight.
+            let t: Double = p * 0.7
+            let dx: Double = a * sin(t + s)
+            let dy: Double = a * 0.6 * sin(2 * t + s)
+            return CGPoint(x: hx + dx, y: hy + dy)
+
+        case .spiral:
+            // Orbit at a radius that itself swells and contracts, winding the
+            // node in and back out.
+            let angle: Double = p * 0.8 + s
+            let radius: Double = a * (0.35 + 0.65 * (0.5 + 0.5 * sin(p * 0.33 + s)))
+            let dx: Double = radius * cos(angle)
+            let dy: Double = radius * sin(angle)
+            return CGPoint(x: hx + dx, y: hy + dy)
         }
     }
 
@@ -182,191 +237,320 @@ enum MotionStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Nodes
-
-struct GradientNode: Codable, Hashable, Identifiable {
-    var id = UUID()
-    var color: RGBAColor
-    /// Gradient reach as a fraction of the canvas' shorter side.
-    var radius: Double
-    /// Resting position in unit space.
-    var home: CGPoint
-    /// 0...1 phase offset so nodes don't move in lockstep.
-    var seed: Double
-
-    init(color: RGBAColor, radius: Double, home: CGPoint, seed: Double = .random(in: 0...1)) {
-        self.color = color
-        self.radius = radius
-        self.home = home
-        self.seed = seed
-    }
-}
-
 // MARK: - Config
 
+/// The gradient is a `MeshGradient`: a `gridWidth × gridHeight` lattice of
+/// control points, each with a colour. Corner points stay pinned; interior
+/// points (and optionally edge points) are displaced over time by the chosen
+/// `MotionStyle`, which is what makes the mesh flow.
 struct GradientConfig: Codable, Hashable {
     // Palette
     var background = RGBAColor(red: 0, green: 0, blue: 0)
-    var nodes: [GradientNode] = []
-    var shadowNodes: [GradientNode] = []
-    var shadowsMove = false
+    /// Row-major colours, one per control point (count == gridWidth * gridHeight).
+    var colors: [RGBAColor] = []
+    var gridWidth: Int = 4
+    var gridHeight: Int = 4
+    /// SwiftUI's higher-quality colour interpolation across the mesh.
+    var smoothsColors = true
 
     // Motion
     var motion: MotionStyle = .drift
     var isAnimating = true
     /// Multiplier on elapsed time. 0 freezes, 3 is frantic.
     var velocity: Double = 1
-    /// How far a node may stray from home, in unit space.
-    var amplitude: Double = 0.25
-    /// Radius modulation depth.
-    var breathe: Double = 0
+    /// How far a control point may stray from home, in unit space.
+    var amplitude: Double = 0.16
+    /// When on, non-corner edge points slide along their edge too.
+    var animateEdges = false
+    /// Global phase shift, so "re-roll" can reshuffle who leads.
+    var motionSeed: Double = 0
     var frameRate: Int = 60
 
     // Canvas
-    var blurRadius: Double = 30
-    /// Solid centre of each blob, as a fraction of its radius.
-    var coreSize: Double = 0.06
-    var nodeBlend: BlendModeOption = .overlay
-    var layerBlend: BlendModeOption = .normal
+    /// Optional extra softening on top of the mesh's own smoothness.
+    var blurRadius: Double = 0
 
     // Noise
-    var noiseOpacity: Double = 0.1
+    var noiseOpacity: Double = 0.08
     /// Texture resolution relative to the canvas — lower means chunkier grain.
     var noiseGranularity: Double = 0.7
     var noiseBlend: BlendModeOption = .overlay
     var noiseAnimated = false
     var noiseFrameRate: Double = 12
+
+    var pointCount: Int { gridWidth * gridHeight }
+
+    func colorIndex(col: Int, row: Int) -> Int { row * gridWidth + col }
+
+    /// Colours mapped for `MeshGradient`, padded/trimmed to the current grid so
+    /// a size change can never crash the renderer mid-edit.
+    var meshColors: [Color] {
+        let need = pointCount
+        var result = colors.map(\.color)
+        if result.count < need {
+            let filler = colors.last?.color ?? .black
+            result += Array(repeating: filler, count: need - result.count)
+        } else if result.count > need {
+            result = Array(result.prefix(need))
+        }
+        return result
+    }
+
+    /// The lattice at rest — used for previews and as the motion's home grid.
+    var homePoints: [SIMD2<Float>] {
+        var points: [SIMD2<Float>] = []
+        points.reserveCapacity(pointCount)
+        for row in 0..<gridHeight {
+            for col in 0..<gridWidth {
+                points.append(SIMD2<Float>(Float(homeX(col)), Float(homeY(row))))
+            }
+        }
+        return points
+    }
+
+    /// The lattice displaced to a given animation phase.
+    func meshPoints(at phase: Double) -> [SIMD2<Float>] {
+        let w = gridWidth
+        let h = gridHeight
+        var points: [SIMD2<Float>] = []
+        points.reserveCapacity(w * h)
+
+        for row in 0..<h {
+            for col in 0..<w {
+                let hx: Double = homeX(col)
+                let hy: Double = homeY(row)
+                let onSideEdge: Bool = (col == 0 || col == w - 1)
+                let onTopEdge: Bool = (row == 0 || row == h - 1)
+                let isCorner: Bool = onSideEdge && onTopEdge
+                let isInterior: Bool = !onSideEdge && !onTopEdge
+                let canMove: Bool = isInterior || (animateEdges && !isCorner)
+
+                var px: Double = hx
+                var py: Double = hy
+
+                if canMove && motion != .still {
+                    let seed: Double = vertexSeed(col: col, row: row)
+                    let moved = motion.position(home: CGPoint(x: hx, y: hy),
+                                                phase: phase, seed: seed, amplitude: amplitude)
+                    if isInterior {
+                        px = Self.clamp(Double(moved.x), 0.04, 0.96)
+                        py = Self.clamp(Double(moved.y), 0.04, 0.96)
+                    } else if onTopEdge {
+                        // Top/bottom rows may slide horizontally, never vertically.
+                        px = Self.clamp(Double(moved.x), 0.06, 0.94)
+                    } else {
+                        // Left/right columns may slide vertically.
+                        py = Self.clamp(Double(moved.y), 0.06, 0.94)
+                    }
+                }
+
+                points.append(SIMD2<Float>(Float(px), Float(py)))
+            }
+        }
+        return points
+    }
+
+    private func homeX(_ col: Int) -> Double {
+        gridWidth > 1 ? Double(col) / Double(gridWidth - 1) : 0.5
+    }
+
+    private func homeY(_ row: Int) -> Double {
+        gridHeight > 1 ? Double(row) / Double(gridHeight - 1) : 0.5
+    }
+
+    /// A stable per-vertex phase in 0..<1, shifted by `motionSeed`.
+    private func vertexSeed(col: Int, row: Int) -> Double {
+        let raw: Double = sin(Double(col) * 12.9898 + Double(row) * 78.233) * 43758.5453
+        let frac: Double = raw - floor(raw)
+        let shifted: Double = frac + motionSeed
+        return shifted - floor(shifted)
+    }
+
+    static func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
+        min(max(value, lower), upper)
+    }
+
+    /// Resizes the lattice, resampling existing colours by nearest neighbour so
+    /// the look is roughly preserved across a grid change.
+    mutating func setGrid(width: Int, height: Int) {
+        let newW = Self.clampInt(width, 2, 6)
+        let newH = Self.clampInt(height, 2, 6)
+        let oldW = gridWidth
+        let oldH = gridHeight
+        let old = colors
+
+        var next: [RGBAColor] = []
+        next.reserveCapacity(newW * newH)
+        for row in 0..<newH {
+            for col in 0..<newW {
+                let u: Double = newW > 1 ? Double(col) / Double(newW - 1) : 0
+                let v: Double = newH > 1 ? Double(row) / Double(newH - 1) : 0
+                let oc: Int = oldW > 1 ? Int((u * Double(oldW - 1)).rounded()) : 0
+                let orow: Int = oldH > 1 ? Int((v * Double(oldH - 1)).rounded()) : 0
+                let idx: Int = orow * oldW + oc
+                if old.indices.contains(idx) {
+                    next.append(old[idx])
+                } else {
+                    next.append(RGBAColor(hue: u, saturation: 0.7, brightness: 0.9))
+                }
+            }
+        }
+
+        gridWidth = newW
+        gridHeight = newH
+        colors = next
+    }
+
+    private static func clampInt(_ value: Int, _ lower: Int, _ upper: Int) -> Int {
+        min(max(value, lower), upper)
+    }
+}
+
+// MARK: - Colour ramps
+
+extension RGBAColor {
+    func lerp(to other: RGBAColor, t: Double) -> RGBAColor {
+        RGBAColor(
+            red: red + (other.red - red) * t,
+            green: green + (other.green - green) * t,
+            blue: blue + (other.blue - blue) * t,
+            opacity: opacity + (other.opacity - opacity) * t
+        )
+    }
+
+    /// Samples an evenly-spaced colour ramp at `t` in 0...1.
+    static func sample(_ ramp: [RGBAColor], at t: Double) -> RGBAColor {
+        guard let first = ramp.first else { return RGBAColor(red: 0, green: 0, blue: 0) }
+        guard ramp.count > 1 else { return first }
+        let clamped: Double = GradientConfig.clamp(t, 0, 1)
+        let scaled: Double = clamped * Double(ramp.count - 1)
+        let index: Int = Int(floor(scaled))
+        if index >= ramp.count - 1 { return ramp[ramp.count - 1] }
+        return ramp[index].lerp(to: ramp[index + 1], t: scaled - Double(index))
+    }
 }
 
 // MARK: - Presets
 
 extension GradientConfig {
-    /// The look the app shipped with before the settings panel existed.
-    static var ember: GradientConfig {
+    /// Lays a colour ramp diagonally across a fresh grid.
+    static func makeColors(width: Int, height: Int, ramp: [RGBAColor]) -> [RGBAColor] {
+        let span: Double = Double((width - 1) + (height - 1))
+        var out: [RGBAColor] = []
+        out.reserveCapacity(width * height)
+        for row in 0..<height {
+            for col in 0..<width {
+                let t: Double = span > 0 ? Double(col + row) / span : 0
+                out.append(RGBAColor.sample(ramp, at: t))
+            }
+        }
+        return out
+    }
+
+    private static func base(
+        ramp: [RGBAColor],
+        background: RGBAColor,
+        motion: MotionStyle,
+        velocity: Double,
+        amplitude: Double,
+        width: Int = 4,
+        height: Int = 4
+    ) -> GradientConfig {
         var config = GradientConfig()
-        config.background = RGBAColor(red: 0, green: 0, blue: 0)
-        config.nodes = [
-            GradientNode(color: RGBAColor(Color.orange).opacity(0.9), radius: 0.5, home: CGPoint(x: 0.2, y: 0.3), seed: 0.05),
-            GradientNode(color: RGBAColor(Color.red).opacity(0.9), radius: 0.45, home: CGPoint(x: 0.6, y: 0.25), seed: 0.31),
-            GradientNode(color: RGBAColor(Color.orange).opacity(0.9), radius: 0.6, home: CGPoint(x: 0.4, y: 0.7), seed: 0.58),
-            GradientNode(color: RGBAColor(Color.red).opacity(0.85), radius: 0.4, home: CGPoint(x: 0.85, y: 0.6), seed: 0.83)
-        ]
-        config.shadowNodes = Self.defaultShadows
-        config.nodeBlend = .overlay
-        config.layerBlend = .normal
+        config.gridWidth = width
+        config.gridHeight = height
+        config.colors = makeColors(width: width, height: height, ramp: ramp)
+        config.background = background
+        config.motion = motion
+        config.velocity = velocity
+        config.amplitude = amplitude
         return config
+    }
+
+    /// A warm ember/flame ramp — the app's original spirit, now as a mesh.
+    static var ember: GradientConfig {
+        base(
+            ramp: [
+                RGBAColor(hue: 0.02, saturation: 0.90, brightness: 0.45),
+                RGBAColor(hue: 0.03, saturation: 0.95, brightness: 0.90),
+                RGBAColor(hue: 0.07, saturation: 0.95, brightness: 1.00),
+                RGBAColor(hue: 0.12, saturation: 0.80, brightness: 1.00)
+            ],
+            background: RGBAColor(red: 0.04, green: 0.0, blue: 0.0),
+            motion: .drift, velocity: 1.0, amplitude: 0.16
+        )
     }
 
     static var aurora: GradientConfig {
-        var config = GradientConfig()
-        config.background = RGBAColor(red: 0.02, green: 0.05, blue: 0.09)
-        config.nodes = [
-            GradientNode(color: RGBAColor(hue: 0.42, saturation: 0.85, brightness: 0.95, opacity: 0.8), radius: 0.55, home: CGPoint(x: 0.25, y: 0.35), seed: 0.1),
-            GradientNode(color: RGBAColor(hue: 0.50, saturation: 0.80, brightness: 0.95, opacity: 0.75), radius: 0.5, home: CGPoint(x: 0.7, y: 0.3), seed: 0.4),
-            GradientNode(color: RGBAColor(hue: 0.75, saturation: 0.70, brightness: 0.90, opacity: 0.7), radius: 0.6, home: CGPoint(x: 0.45, y: 0.72), seed: 0.65),
-            GradientNode(color: RGBAColor(hue: 0.58, saturation: 0.75, brightness: 0.95, opacity: 0.6), radius: 0.45, home: CGPoint(x: 0.85, y: 0.7), seed: 0.9)
-        ]
-        config.shadowNodes = Self.defaultShadows.map { node in
-            var node = node
-            node.color = RGBAColor(red: 0, green: 0.02, blue: 0.06, opacity: 0.5)
-            return node
-        }
-        config.nodeBlend = .screen
-        config.blurRadius = 45
-        config.motion = .drift
-        config.velocity = 0.6
-        config.amplitude = 0.3
-        config.noiseOpacity = 0.08
-        return config
+        base(
+            ramp: [
+                RGBAColor(hue: 0.45, saturation: 0.80, brightness: 0.70),
+                RGBAColor(hue: 0.50, saturation: 0.85, brightness: 0.95),
+                RGBAColor(hue: 0.60, saturation: 0.80, brightness: 0.90),
+                RGBAColor(hue: 0.75, saturation: 0.70, brightness: 0.85)
+            ],
+            background: RGBAColor(red: 0.02, green: 0.05, blue: 0.09),
+            motion: .drift, velocity: 0.6, amplitude: 0.22
+        )
     }
 
     static var neon: GradientConfig {
-        var config = GradientConfig()
-        config.background = RGBAColor(red: 0.02, green: 0.02, blue: 0.04)
-        config.nodes = [
-            GradientNode(color: RGBAColor(hue: 0.86, saturation: 0.9, brightness: 1.0, opacity: 0.7), radius: 0.5, home: CGPoint(x: 0.3, y: 0.3), seed: 0.0),
-            GradientNode(color: RGBAColor(hue: 0.52, saturation: 0.9, brightness: 1.0, opacity: 0.7), radius: 0.5, home: CGPoint(x: 0.7, y: 0.4), seed: 0.33),
-            GradientNode(color: RGBAColor(hue: 0.25, saturation: 0.9, brightness: 1.0, opacity: 0.55), radius: 0.45, home: CGPoint(x: 0.5, y: 0.75), seed: 0.66)
-        ]
-        config.shadowNodes = []
-        config.nodeBlend = .plusLighter
-        config.blurRadius = 60
-        config.coreSize = 0.02
-        config.motion = .orbit
-        config.velocity = 0.8
-        config.amplitude = 0.18
-        config.breathe = 0.2
-        config.noiseOpacity = 0.14
+        var config = base(
+            ramp: [
+                RGBAColor(hue: 0.86, saturation: 0.90, brightness: 1.0),
+                RGBAColor(hue: 0.52, saturation: 0.90, brightness: 1.0),
+                RGBAColor(hue: 0.30, saturation: 0.90, brightness: 1.0),
+                RGBAColor(hue: 0.70, saturation: 0.90, brightness: 1.0)
+            ],
+            background: RGBAColor(red: 0.02, green: 0.02, blue: 0.04),
+            motion: .orbit, velocity: 0.8, amplitude: 0.16
+        )
+        config.noiseOpacity = 0.12
         config.noiseGranularity = 0.9
         return config
     }
 
     static var ocean: GradientConfig {
-        var config = GradientConfig()
-        config.background = RGBAColor(red: 0.01, green: 0.06, blue: 0.12)
-        config.nodes = [
-            GradientNode(color: RGBAColor(hue: 0.53, saturation: 0.8, brightness: 0.8, opacity: 0.85), radius: 0.6, home: CGPoint(x: 0.25, y: 0.25), seed: 0.12),
-            GradientNode(color: RGBAColor(hue: 0.60, saturation: 0.9, brightness: 0.7, opacity: 0.85), radius: 0.55, home: CGPoint(x: 0.75, y: 0.35), seed: 0.44),
-            GradientNode(color: RGBAColor(hue: 0.47, saturation: 0.7, brightness: 0.85, opacity: 0.7), radius: 0.5, home: CGPoint(x: 0.5, y: 0.8), seed: 0.77)
-        ]
-        config.shadowNodes = Self.defaultShadows
-        config.nodeBlend = .screen
-        config.blurRadius = 55
-        config.motion = .swirl
-        config.velocity = 0.4
-        config.amplitude = 0.12
-        config.breathe = 0.12
-        return config
+        base(
+            ramp: [
+                RGBAColor(hue: 0.62, saturation: 0.90, brightness: 0.50),
+                RGBAColor(hue: 0.55, saturation: 0.90, brightness: 0.80),
+                RGBAColor(hue: 0.50, saturation: 0.85, brightness: 0.90),
+                RGBAColor(hue: 0.47, saturation: 0.70, brightness: 0.95)
+            ],
+            background: RGBAColor(red: 0.01, green: 0.06, blue: 0.12),
+            motion: .swirl, velocity: 0.4, amplitude: 0.14
+        )
     }
 
     static var sunset: GradientConfig {
-        var config = GradientConfig()
-        config.background = RGBAColor(red: 0.09, green: 0.02, blue: 0.10)
-        config.nodes = [
-            GradientNode(color: RGBAColor(hue: 0.95, saturation: 0.75, brightness: 1.0, opacity: 0.8), radius: 0.55, home: CGPoint(x: 0.3, y: 0.28), seed: 0.2),
-            GradientNode(color: RGBAColor(hue: 0.08, saturation: 0.85, brightness: 1.0, opacity: 0.8), radius: 0.5, home: CGPoint(x: 0.7, y: 0.45), seed: 0.5),
-            GradientNode(color: RGBAColor(hue: 0.80, saturation: 0.70, brightness: 0.9, opacity: 0.7), radius: 0.6, home: CGPoint(x: 0.45, y: 0.78), seed: 0.8)
-        ]
-        config.shadowNodes = Self.defaultShadows
-        config.nodeBlend = .screen
-        config.blurRadius = 40
-        config.motion = .bounce
-        config.velocity = 0.7
-        config.amplitude = 0.22
-        return config
+        base(
+            ramp: [
+                RGBAColor(hue: 0.80, saturation: 0.70, brightness: 0.70),
+                RGBAColor(hue: 0.92, saturation: 0.80, brightness: 1.0),
+                RGBAColor(hue: 0.05, saturation: 0.85, brightness: 1.0),
+                RGBAColor(hue: 0.11, saturation: 0.80, brightness: 1.0)
+            ],
+            background: RGBAColor(red: 0.06, green: 0.01, blue: 0.08),
+            motion: .bounce, velocity: 0.7, amplitude: 0.20
+        )
     }
 
     static var mono: GradientConfig {
-        var config = GradientConfig()
-        config.background = RGBAColor(red: 0.08, green: 0.08, blue: 0.09)
-        config.nodes = (0..<4).map { (i: Int) -> GradientNode in
-            let radius: Double = 0.4 + Double(i) * 0.05
-            let x: Double = 0.25 + Double(i % 2) * 0.5
-            let y: Double = 0.3 + Double(i / 2) * 0.4
-            let seed: Double = Double(i) / 4
-            return GradientNode(
-                color: RGBAColor(red: 1, green: 1, blue: 1, opacity: 0.35),
-                radius: radius,
-                home: CGPoint(x: x, y: y),
-                seed: seed
-            )
-        }
-        config.shadowNodes = []
-        config.nodeBlend = .softLight
-        config.blurRadius = 50
-        config.motion = .drift
-        config.velocity = 0.5
-        config.noiseOpacity = 0.2
+        var config = base(
+            ramp: [
+                RGBAColor(red: 0.18, green: 0.18, blue: 0.20),
+                RGBAColor(red: 0.45, green: 0.45, blue: 0.48),
+                RGBAColor(red: 0.70, green: 0.70, blue: 0.74),
+                RGBAColor(red: 0.92, green: 0.92, blue: 0.95)
+            ],
+            background: RGBAColor(red: 0.05, green: 0.05, blue: 0.06),
+            motion: .drift, velocity: 0.5, amplitude: 0.18
+        )
+        config.noiseOpacity = 0.16
         config.noiseGranularity = 1.0
         return config
     }
-
-    static let defaultShadows: [GradientNode] = [
-        GradientNode(color: RGBAColor(red: 0, green: 0, blue: 0, opacity: 0.7), radius: 0.3, home: CGPoint(x: 0.3, y: 0.4), seed: 0.17),
-        GradientNode(color: RGBAColor(red: 0, green: 0, blue: 0, opacity: 0.7), radius: 0.25, home: CGPoint(x: 0.7, y: 0.3), seed: 0.42),
-        GradientNode(color: RGBAColor(red: 0, green: 0, blue: 0, opacity: 0.7), radius: 0.35, home: CGPoint(x: 0.5, y: 0.6), seed: 0.68),
-        GradientNode(color: RGBAColor(red: 0, green: 0, blue: 0, opacity: 0.7), radius: 0.28, home: CGPoint(x: 0.8, y: 0.7), seed: 0.93)
-    ]
 }
 
 enum GradientPreset: String, CaseIterable, Identifiable {
@@ -390,42 +574,31 @@ enum GradientPreset: String, CaseIterable, Identifiable {
 // MARK: - Randomiser
 
 extension GradientConfig {
-    /// Builds a fresh palette around a random base hue, keeping motion settings intact.
+    /// Rebuilds the colour grid around a random base hue, keeping motion intact.
     mutating func randomizePalette() {
-        let baseHue = Double.random(in: 0...1)
-        let scheme = Double.random(in: 0.08...0.35)   // how far hues spread
-        let dark = Double.random(in: 0.02...0.12)
+        let baseHue: Double = Double.random(in: 0...1)
+        let spread: Double = Double.random(in: 0.12...0.5)
+        let dark: Double = Double.random(in: 0.02...0.12)
 
-        background = RGBAColor(hue: baseHue, saturation: Double.random(in: 0.3...0.8), brightness: dark)
+        background = RGBAColor(hue: baseHue, saturation: Double.random(in: 0.3...0.7), brightness: dark)
 
-        let count = Int.random(in: 3...5)
-        nodes = (0..<count).map { i in
-            let hue = (baseHue + scheme * Double(i) + Double.random(in: -0.03...0.03))
-                .truncatingRemainder(dividingBy: 1)
-            return GradientNode(
-                color: RGBAColor(
-                    hue: hue < 0 ? hue + 1 : hue,
-                    saturation: Double.random(in: 0.6...0.95),
-                    brightness: Double.random(in: 0.75...1.0),
-                    opacity: Double.random(in: 0.55...0.9)
-                ),
-                radius: Double.random(in: 0.35...0.65),
-                home: CGPoint(x: Double.random(in: 0.15...0.85), y: Double.random(in: 0.15...0.85)),
-                seed: Double(i) / Double(count) + Double.random(in: 0...0.1)
+        let ramp: [RGBAColor] = (0..<4).map { (i: Int) -> RGBAColor in
+            var hue: Double = baseHue + spread * Double(i) + Double.random(in: -0.03...0.03)
+            hue -= floor(hue)
+            return RGBAColor(
+                hue: hue,
+                saturation: Double.random(in: 0.65...0.95),
+                brightness: Double.random(in: 0.55...1.0)
             )
         }
-
-        nodeBlend = [.screen, .plusLighter, .overlay, .softLight].randomElement() ?? .screen
+        colors = Self.makeColors(width: gridWidth, height: gridHeight, ramp: ramp)
     }
 
     /// Re-rolls motion parameters without touching the palette.
     mutating func randomizeMotion() {
         motion = MotionStyle.allCases.filter { $0 != .still }.randomElement() ?? .drift
         velocity = Double.random(in: 0.3...1.6)
-        amplitude = Double.random(in: 0.08...0.35)
-        breathe = Bool.random() ? Double.random(in: 0...0.3) : 0
-        for index in nodes.indices {
-            nodes[index].seed = Double.random(in: 0...1)
-        }
+        amplitude = Double.random(in: 0.08...0.28)
+        motionSeed = Double.random(in: 0...1)
     }
 }
