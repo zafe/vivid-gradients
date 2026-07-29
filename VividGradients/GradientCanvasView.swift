@@ -14,35 +14,52 @@ struct GradientCanvasView: View {
     var body: some View {
         let config = store.config
 
-        ZStack {
-            // Behind the mesh so any optional blur fades into the base tone
-            // rather than into transparency at the screen edges.
-            config.background.color
+        GeometryReader { geo in
+            ZStack {
+                // Behind the mesh so any optional blur (or a rotation rounding
+                // gap) fades into the base tone rather than into transparency.
+                config.background.color
 
-            TimelineView(.animation(minimumInterval: 1.0 / Double(config.frameRate),
-                                    paused: !config.isAnimating)) { timeline in
-                let phase = store.phase(at: timeline.date)
-                MeshGradient(
-                    width: config.gridWidth,
-                    height: config.gridHeight,
-                    points: config.meshPoints(at: phase),
-                    colors: config.meshColors,
-                    background: config.background.color,
-                    smoothsColors: config.smoothsColors
+                TimelineView(.animation(minimumInterval: 1.0 / Double(config.frameRate),
+                                        paused: !config.isAnimating)) { timeline in
+                    let phase = store.phase(at: timeline.date)
+                    MeshGradient(
+                        width: config.gridWidth,
+                        height: config.gridHeight,
+                        points: config.meshPoints(at: phase),
+                        colors: config.meshColors,
+                        background: config.background.color,
+                        smoothsColors: config.smoothsColors
+                    )
+                    .rotationEffect(.degrees(config.rotation))
+                    .scaleEffect(coverScale(size: geo.size, degrees: config.rotation))
+                    .blur(radius: CGFloat(config.blurRadius))
+                }
+
+                NoiseLayer(
+                    opacity: config.noiseOpacity,
+                    granularity: config.noiseGranularity,
+                    blendMode: config.noiseBlend.blendMode,
+                    animated: config.noiseAnimated,
+                    frameRate: config.noiseFrameRate
                 )
-                .blur(radius: CGFloat(config.blurRadius))
+                .allowsHitTesting(false)
             }
-
-            NoiseLayer(
-                opacity: config.noiseOpacity,
-                granularity: config.noiseGranularity,
-                blendMode: config.noiseBlend.blendMode,
-                animated: config.noiseAnimated,
-                frameRate: config.noiseFrameRate
-            )
-            .allowsHitTesting(false)
         }
         .ignoresSafeArea()
+    }
+
+    /// Uniform scale that keeps a rotated rectangle covering the screen, so a
+    /// turned gradient never reveals the background at the corners.
+    private func coverScale(size: CGSize, degrees: Double) -> CGFloat {
+        let radians: Double = degrees * .pi / 180
+        let c: Double = abs(cos(radians))
+        let s: Double = abs(sin(radians))
+        let w: Double = max(Double(size.width), 1)
+        let h: Double = max(Double(size.height), 1)
+        let coverW: Double = (w * c + h * s) / w
+        let coverH: Double = (h * c + w * s) / h
+        return CGFloat(max(coverW, coverH))
     }
 }
 

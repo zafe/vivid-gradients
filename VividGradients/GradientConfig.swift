@@ -269,6 +269,9 @@ struct GradientConfig: Codable, Hashable {
     // Canvas
     /// Optional extra softening on top of the mesh's own smoothness.
     var blurRadius: Double = 0
+    /// Whole-gradient rotation in degrees. The renderer over-scales the mesh so
+    /// a turn never exposes the corners.
+    var rotation: Double = 0
 
     // Noise
     var noiseOpacity: Double = 0.08

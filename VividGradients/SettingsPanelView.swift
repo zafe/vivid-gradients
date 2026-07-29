@@ -267,6 +267,15 @@ struct SettingsPanelView: View {
         }
 
         Section {
+            LabeledSlider(title: "Rotation", value: $store.config.rotation,
+                          range: -180...180, format: "%.0f°")
+        } header: {
+            Text("Orientation")
+        } footer: {
+            Text("Turns the whole gradient. The mesh is over-scaled so corners stay covered at any angle.")
+        }
+
+        Section {
             Button("Copy config as JSON", systemImage: "doc.on.doc") {
                 copyConfig()
             }
