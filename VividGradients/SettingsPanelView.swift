@@ -276,17 +276,22 @@ struct SettingsPanelView: View {
         }
 
         Section {
-            Button("Copy config as JSON", systemImage: "doc.on.doc") {
-                copyConfig()
+            Button("Copy as Swift view", systemImage: "swift") {
+                copy(store.configSwiftSnippet)
             }
+            Button("Copy config as JSON", systemImage: "curlybraces") {
+                copy(store.configJSON)
+            }
+        } header: {
+            Text("Export")
         } footer: {
-            Text("Paste into another project to reproduce this exact look.")
+            Text("The Swift view is self-contained — paste it into any iOS 18 app to render this gradient with no VividGradients files (noise not included). JSON holds just the raw values.")
         }
     }
 
-    private func copyConfig() {
+    private func copy(_ string: String) {
         #if canImport(UIKit)
-        UIPasteboard.general.string = store.configJSON
+        UIPasteboard.general.string = string
         #endif
     }
 }
