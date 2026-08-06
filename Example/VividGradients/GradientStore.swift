@@ -1,22 +1,21 @@
 //
 //  GradientStore.swift
-//  VividGradients
+//  VividGradients example
 //
-//  Owns the live config, keeps the animation clock continuous across edits,
-//  and persists whatever you were last playing with.
+//  Owns the live config for the customization UI and persists whatever you
+//  were last playing with. The animation clock lives in the package's
+//  `GradientView`, so this is purely an editing model.
 //
 
 import SwiftUI
 import Observation
+import VividGradients
 
 @Observable
 final class GradientStore {
     var config: GradientConfig {
         didSet {
             guard config != oldValue else { return }
-            if config.velocity != oldValue.velocity || config.isAnimating != oldValue.isAnimating {
-                rebaseClock(previous: oldValue)
-            }
             schedulePersist()
         }
     }
@@ -24,8 +23,6 @@ final class GradientStore {
     /// Set by the settings panel so the preset row can show what's selected.
     var activePreset: GradientPreset?
 
-    @ObservationIgnored private var phaseOffset: Double = 0
-    @ObservationIgnored private var epoch: Double = Date.timeIntervalSinceReferenceDate
     @ObservationIgnored private var persistTask: Task<Void, Never>?
 
     private static let storageKey = "VividGradients.config"
@@ -35,26 +32,9 @@ final class GradientStore {
            let saved = try? JSONDecoder().decode(GradientConfig.self, from: data) {
             config = saved
         } else {
-            config = .ember
+            config = GradientPreset.ember.config
             activePreset = .ember
         }
-    }
-
-    // MARK: Clock
-
-    /// Elapsed animation time, scaled by velocity. Continuous when velocity
-    /// changes or the animation is paused and resumed.
-    func phase(at date: Date) -> Double {
-        guard config.isAnimating else { return phaseOffset }
-        return phaseOffset + (date.timeIntervalSinceReferenceDate - epoch) * config.velocity
-    }
-
-    private func rebaseClock(previous: GradientConfig) {
-        let now = Date.timeIntervalSinceReferenceDate
-        if previous.isAnimating {
-            phaseOffset += (now - epoch) * previous.velocity
-        }
-        epoch = now
     }
 
     // MARK: Editing

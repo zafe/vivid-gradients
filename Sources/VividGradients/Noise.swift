@@ -1,69 +1,12 @@
 //
-//  GradientCanvasView.swift
+//  Noise.swift
 //  VividGradients
 //
-//  Renders the palette as an animated SwiftUI MeshGradient — a lattice of
-//  coloured control points whose interior flows according to the motion style.
+//  Film-grain overlay for the gradient, with a small cache so the bitmap isn't
+//  regenerated every frame. Internal to the package.
 //
 
 import SwiftUI
-
-struct GradientCanvasView: View {
-    let store: GradientStore
-
-    var body: some View {
-        let config = store.config
-
-        GeometryReader { geo in
-            ZStack {
-                // Behind the mesh so any optional blur (or a rotation rounding
-                // gap) fades into the base tone rather than into transparency.
-                config.background.color
-
-                TimelineView(.animation(minimumInterval: 1.0 / Double(config.frameRate),
-                                        paused: !config.isAnimating)) { timeline in
-                    let phase = store.phase(at: timeline.date)
-                    MeshGradient(
-                        width: config.gridWidth,
-                        height: config.gridHeight,
-                        points: config.meshPoints(at: phase),
-                        colors: config.meshColors,
-                        background: config.background.color,
-                        smoothsColors: config.smoothsColors
-                    )
-                    .rotationEffect(.degrees(config.rotation))
-                    .scaleEffect(coverScale(size: geo.size, degrees: config.rotation))
-                    .blur(radius: CGFloat(config.blurRadius))
-                }
-
-                NoiseLayer(
-                    opacity: config.noiseOpacity,
-                    granularity: config.noiseGranularity,
-                    blendMode: config.noiseBlend.blendMode,
-                    animated: config.noiseAnimated,
-                    frameRate: config.noiseFrameRate
-                )
-                .allowsHitTesting(false)
-            }
-        }
-        .ignoresSafeArea()
-    }
-
-    /// Uniform scale that keeps a rotated rectangle covering the screen, so a
-    /// turned gradient never reveals the background at the corners.
-    private func coverScale(size: CGSize, degrees: Double) -> CGFloat {
-        let radians: Double = degrees * .pi / 180
-        let c: Double = abs(cos(radians))
-        let s: Double = abs(sin(radians))
-        let w: Double = max(Double(size.width), 1)
-        let h: Double = max(Double(size.height), 1)
-        let coverW: Double = (w * c + h * s) / w
-        let coverH: Double = (h * c + w * s) / h
-        return CGFloat(max(coverW, coverH))
-    }
-}
-
-// MARK: - Noise
 
 struct NoiseLayer: View {
     var opacity: Double
@@ -156,8 +99,4 @@ final class NoiseTextureStore {
         }
         return image
     }
-}
-
-#Preview {
-    GradientCanvasView(store: GradientStore())
 }

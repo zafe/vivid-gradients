@@ -6,13 +6,14 @@
 //
 
 import SwiftUI
+import VividGradients
 
 struct FreeformApproxView: View {
     @State private var store = GradientStore()
     @State private var showSettings = false
 
     var body: some View {
-        GradientCanvasView(store: store)
+        GradientView(config: store.config)
             .overlay(alignment: .topTrailing) {
                 Button {
                     showSettings = true

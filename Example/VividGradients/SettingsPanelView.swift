@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import VividGradients
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case palette, motion, noise, canvas
@@ -247,7 +248,7 @@ struct SettingsPanelView: View {
                               range: 1...30, format: "%.0f fps")
             }
         } footer: {
-            Text("Cycles through \(NoiseTextureStore.frameCount) cached noise frames for a film-grain shimmer.")
+            Text("Cycles through a few cached noise frames for a film-grain shimmer.")
         }
     }
 
@@ -302,18 +303,16 @@ private struct PresetSwatch: View {
     let preset: GradientPreset
     let isSelected: Bool
 
-    var body: some View {
-        let config = preset.config
+    private var swatchConfig: GradientConfig {
+        var config = preset.config
+        config.isAnimating = false   // a still thumbnail; no need to animate 11 at once
+        config.blurRadius = 0
+        return config
+    }
 
+    var body: some View {
         VStack(spacing: 6) {
-            MeshGradient(
-                width: config.gridWidth,
-                height: config.gridHeight,
-                points: config.homePoints,
-                colors: config.meshColors,
-                background: config.background.color,
-                smoothsColors: config.smoothsColors
-            )
+            GradientView(config: swatchConfig)
             .frame(width: 64, height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(

@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import VividGradients
 
 extension GradientStore {
     var configSwiftSnippet: String {

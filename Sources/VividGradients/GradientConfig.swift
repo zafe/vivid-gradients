@@ -10,20 +10,20 @@ import SwiftUI
 // MARK: - Color
 
 /// A concrete sRGB color that survives a round trip through JSON.
-struct RGBAColor: Codable, Hashable {
-    var red: Double
-    var green: Double
-    var blue: Double
-    var opacity: Double
+public struct RGBAColor: Codable, Hashable {
+    public var red: Double
+    public var green: Double
+    public var blue: Double
+    public var opacity: Double
 
-    init(red: Double, green: Double, blue: Double, opacity: Double = 1) {
+    public init(red: Double, green: Double, blue: Double, opacity: Double = 1) {
         self.red = red
         self.green = green
         self.blue = blue
         self.opacity = opacity
     }
 
-    init(_ color: Color) {
+    public init(_ color: Color) {
         let resolved = color.resolve(in: EnvironmentValues())
         self.init(
             red: Double(resolved.red),
@@ -33,11 +33,11 @@ struct RGBAColor: Codable, Hashable {
         )
     }
 
-    init(hue: Double, saturation: Double, brightness: Double, opacity: Double = 1) {
+    public init(hue: Double, saturation: Double, brightness: Double, opacity: Double = 1) {
         self.init(Color(hue: hue, saturation: saturation, brightness: brightness, opacity: opacity))
     }
 
-    var color: Color {
+    public var color: Color {
         Color(.sRGB, red: red, green: green, blue: blue, opacity: opacity)
     }
 
@@ -51,11 +51,11 @@ struct RGBAColor: Codable, Hashable {
 // MARK: - Blend modes
 
 /// The subset of `BlendMode` that reads well on a gradient, made Codable.
-enum BlendModeOption: String, Codable, CaseIterable, Identifiable {
+public enum BlendModeOption: String, Codable, CaseIterable, Identifiable {
     case normal, overlay, screen, plusLighter, softLight, hardLight
     case multiply, colorDodge, colorBurn, difference, luminosity
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
     var blendMode: BlendMode {
         switch self {
@@ -73,7 +73,7 @@ enum BlendModeOption: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var label: String {
+    public var label: String {
         switch self {
         case .plusLighter: "Plus Lighter"
         case .softLight: "Soft Light"
@@ -89,20 +89,20 @@ enum BlendModeOption: String, Codable, CaseIterable, Identifiable {
 
 /// Position curves the nodes can follow. Each maps a monotonically increasing
 /// `phase` (seconds scaled by velocity) onto a unit-space position.
-enum MotionStyle: String, Codable, CaseIterable, Identifiable {
+public enum MotionStyle: String, Codable, CaseIterable, Identifiable {
     case still, drift, orbit, bounce, swirl, jitter
     case flag, radiance, ripple, pendulum, figureEight, spiral
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var label: String {
+    public var label: String {
         switch self {
         case .figureEight: "Figure 8"
         default: rawValue.capitalized
         }
     }
 
-    var symbol: String {
+    public var symbol: String {
         switch self {
         case .still: "pause.circle"
         case .drift: "wind"
@@ -119,7 +119,7 @@ enum MotionStyle: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var blurb: String {
+    public var blurb: String {
         switch self {
         case .still: "Nodes hold their home position."
         case .drift: "Slow organic wander from two detuned waves."
@@ -243,45 +243,48 @@ enum MotionStyle: String, Codable, CaseIterable, Identifiable {
 /// control points, each with a colour. Corner points stay pinned; interior
 /// points (and optionally edge points) are displaced over time by the chosen
 /// `MotionStyle`, which is what makes the mesh flow.
-struct GradientConfig: Codable, Hashable {
+public struct GradientConfig: Codable, Hashable {
     // Palette
-    var background = RGBAColor(red: 0, green: 0, blue: 0)
+    public var background = RGBAColor(red: 0, green: 0, blue: 0)
     /// Row-major colours, one per control point (count == gridWidth * gridHeight).
-    var colors: [RGBAColor] = []
-    var gridWidth: Int = 4
-    var gridHeight: Int = 4
+    public var colors: [RGBAColor] = []
+    public var gridWidth: Int = 4
+    public var gridHeight: Int = 4
     /// SwiftUI's higher-quality colour interpolation across the mesh.
-    var smoothsColors = true
+    public var smoothsColors = true
 
     // Motion
-    var motion: MotionStyle = .drift
-    var isAnimating = true
+    public var motion: MotionStyle = .drift
+    public var isAnimating = true
     /// Multiplier on elapsed time. 0 freezes, 3 is frantic.
-    var velocity: Double = 1
+    public var velocity: Double = 1
     /// How far a control point may stray from home, in unit space.
-    var amplitude: Double = 0.16
+    public var amplitude: Double = 0.16
     /// When on, non-corner edge points slide along their edge too.
-    var animateEdges = false
+    public var animateEdges = false
     /// Global phase shift, so "re-roll" can reshuffle who leads.
-    var motionSeed: Double = 0
-    var frameRate: Int = 60
+    public var motionSeed: Double = 0
+    public var frameRate: Int = 60
 
     // Canvas
     /// Optional extra softening on top of the mesh's own smoothness.
-    var blurRadius: Double = 0
+    public var blurRadius: Double = 0
     /// Whole-gradient rotation in degrees. The renderer over-scales the mesh so
     /// a turn never exposes the corners.
-    var rotation: Double = 0
+    public var rotation: Double = 0
 
     // Noise
-    var noiseOpacity: Double = 0.08
+    public var noiseOpacity: Double = 0.08
     /// Texture resolution relative to the canvas — lower means chunkier grain.
-    var noiseGranularity: Double = 0.7
-    var noiseBlend: BlendModeOption = .overlay
-    var noiseAnimated = false
-    var noiseFrameRate: Double = 12
+    public var noiseGranularity: Double = 0.7
+    public var noiseBlend: BlendModeOption = .overlay
+    public var noiseAnimated = false
+    public var noiseFrameRate: Double = 12
 
-    var pointCount: Int { gridWidth * gridHeight }
+    /// A default configuration (the ember preset's colours arrive via presets).
+    public init() {}
+
+    public var pointCount: Int { gridWidth * gridHeight }
 
     func colorIndex(col: Int, row: Int) -> Int { row * gridWidth + col }
 
@@ -375,7 +378,7 @@ struct GradientConfig: Codable, Hashable {
 
     /// Resizes the lattice, resampling existing colours by nearest neighbour so
     /// the look is roughly preserved across a grid change.
-    mutating func setGrid(width: Int, height: Int) {
+    public mutating func setGrid(width: Int, height: Int) {
         let newW = Self.clampInt(width, 2, 6)
         let newH = Self.clampInt(height, 2, 6)
         let oldW = gridWidth
@@ -631,14 +634,14 @@ extension GradientConfig {
     }
 }
 
-enum GradientPreset: String, CaseIterable, Identifiable {
+public enum GradientPreset: String, CaseIterable, Identifiable {
     case ember, aurora, neon, ocean, sunset, mono
     case blossom, mist, sorbet, meadow, linen
 
-    var id: String { rawValue }
-    var label: String { rawValue.capitalized }
+    public var id: String { rawValue }
+    public var label: String { rawValue.capitalized }
 
-    var config: GradientConfig {
+    public var config: GradientConfig {
         switch self {
         case .ember: .ember
         case .aurora: .aurora
@@ -658,19 +661,19 @@ enum GradientPreset: String, CaseIterable, Identifiable {
 // MARK: - Randomiser
 
 /// Which end of the light spectrum a random palette should land in.
-enum PaletteMode: String, CaseIterable, Identifiable {
+public enum PaletteMode: String, CaseIterable, Identifiable {
     case dark, light
 
-    var id: String { rawValue }
-    var label: String { rawValue.capitalized }
-    var symbol: String { self == .dark ? "moon.stars.fill" : "sun.max.fill" }
+    public var id: String { rawValue }
+    public var label: String { rawValue.capitalized }
+    public var symbol: String { self == .dark ? "moon.stars.fill" : "sun.max.fill" }
 }
 
 extension GradientConfig {
     /// Rebuilds the colour grid around a random base hue, keeping motion intact.
     /// `mode` decides whether the background reads dark with vivid colours, or
     /// light with softer ones.
-    mutating func randomizePalette(_ mode: PaletteMode = .dark) {
+    public mutating func randomizePalette(_ mode: PaletteMode = .dark) {
         let baseHue: Double = Double.random(in: 0...1)
         let spread: Double = Double.random(in: 0.12...0.5)
 
@@ -706,7 +709,7 @@ extension GradientConfig {
     }
 
     /// Re-rolls motion parameters without touching the palette.
-    mutating func randomizeMotion() {
+    public mutating func randomizeMotion() {
         motion = MotionStyle.allCases.filter { $0 != .still }.randomElement() ?? .drift
         velocity = Double.random(in: 0.3...1.6)
         amplitude = Double.random(in: 0.08...0.28)
