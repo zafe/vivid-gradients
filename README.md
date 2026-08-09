@@ -1,9 +1,10 @@
 # VividGradients
 
-An animated SwiftUI **mesh gradient** you configure with a value type. Feed it a
-`GradientConfig` and it renders a lattice of coloured control points whose
-interior flows according to a chosen motion style — drift, orbit, swirl, flag,
-radiance, ripple, spiral, and more.
+> Animated SwiftUI mesh gradient you configure with a `Codable` `GradientConfig` — presets, motion styles, and a copy-as-Swift export. iOS 18+.
+
+Feed `GradientView` a `GradientConfig` and it renders a lattice of coloured
+control points whose interior flows according to a chosen motion style — drift,
+orbit, swirl, flag, radiance, ripple, spiral, and more.
 
 Requires iOS 18 / macOS 15 / visionOS 2 (uses `MeshGradient`).
 
