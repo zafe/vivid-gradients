@@ -286,7 +286,7 @@ struct SettingsPanelView: View {
         } header: {
             Text("Export")
         } footer: {
-            Text("The Swift view is self-contained — paste it into any iOS 18 app to render this gradient with no VividGradients files (noise not included). JSON holds just the raw values.")
+            Text("The Swift view uses the VividGradients package (README style) — paste it into an app that has the package added. JSON holds just the raw values.")
         }
     }
 
